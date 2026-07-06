@@ -1,0 +1,2 @@
+# Nbd-plalform
+Bnd 
