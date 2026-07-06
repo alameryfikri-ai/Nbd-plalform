@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>منصة نبض للرعاية الذكية - Nabd Smart Care</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Tajawal for Arabic, Inter for English -->
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- React & ReactDOM CDNs -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel for in-browser JSX parsing -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Chart.js CDN for physiological charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Tajawal', 'Inter', 'sans-serif'],
+            mono: ['SFMono-Regular', 'Consolas', 'monospace']
+          },
+          colors: {
+            medical: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Tajawal', 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.05);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.2);
+      border-radius: 10px;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+
+  <div id="root"></div>
+
+  <!-- React JSX Application Code -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Default Seed Patients Data
+    const INITIAL_PATIENTS = [
+      {
+        id: "pat-101",
+        mrn: "MRN-2026-0012",
+        name: "أحمد عبدالله محمد",
+        age: 62,
+        gender: "Male",
+        department: "Emergency",
+        symptoms: "ضيق حاد في التنفس، آلام في الصدر تزداد مع الشهيق، وسعال جاف مستمر.",
+        diagnosis: "اشتباه انصباب جنبي أو التهاب رئوي حاد مع قصور تنفسي",
+        bp: 98,
+        bpd: 64,
+        hr: 112,
+        rr: 26,
+        temp: 38.8,
+        spo2: 89,
+        gcs: "C",
+        oxygen: true,
+        labs: "WBC: 14.5k (High), CRP: 85 mg/L (High), pH: 7.32 (Mild Acidosis).",
+        treatments: "أكسجين مرطب 4 لتر/دقيقة، مضاد حيوي Ceftriaxone 2g IV، مسكن Paracetamol 1g IV.",
+        riskLevel: "HIGH",
+        newsScore: 12,
+        createdDate: new Date(Date.now() - 3600000 * 2).toISOString(),
+        timeline: [
+          { id: "t1", date: "2026-07-05", type: "entry", title: "دخول قسم الطوارئ", desc: "تم استقبال المريض في حالة تنفسية متدهورة وتسجيل العلامات الحيوية الأولية.", clinician: "د. طارق الهادي" }
+        ],
+        scans: [
+          { name: "Chest X-Ray", url: "https://images.unsplash.com/photo-1559757175-5700dde675bc?auto=format&fit=crop&q=80&w=800", type: "XRAY" },
+          { name: "ECG Graph", url: "https://images.unsplash.com/photo-1530026405186-ed1ea0ac7a63?auto=format&fit=crop&q=80&w=800", type: "ECG" }
+        ]
+      },
+      {
+        id: "pat-102",
+        mrn: "MRN-2026-0045",
+        name: "فاطمة عمر العمودي",
+        age: 45,
+        gender: "Female",
+        department: "Cardiology",
+        symptoms: "خفقان سريع، ألم عاصر خلف القص يمتد للكتف الأيسر، تعرق بارد شديد وغثيان.",
+        diagnosis: "متلازمة الشريان التاجي الحادة (ACS) - اشتباه احتشاء عضلة القلب STEMI",
+        bp: 135,
+        bpd: 85,
+        hr: 98,
+        rr: 19,
+        temp: 36.7,
+        spo2: 95,
+        gcs: "A",
+        oxygen: false,
+        labs: "Troponin T: 420 ng/L (Highly Elevated), CK-MB: 32 U/L.",
+        treatments: "Aspirin 300mg PO, Heparin 5000 IU IV, Nitroglycerin sublingual.",
+        riskLevel: "MEDIUM",
+        newsScore: 2,
+        createdDate: new Date(Date.now() - 3600000 * 5).toISOString(),
+        timeline: [
+          { id: "t2", date: "2026-07-06", type: "labs", title: "تحليل إنزيمات القلب", desc: "ارتفاع حاد في إنزيمات التروبونين يؤكد الجلطة القلبية الحادة.", clinician: "د. طارق الهادي" }
+        ],
+        scans: [
+          { name: "Cardiac Angiography", url: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=800", type: "MRI" }
+        ]
+      }
+    ];
+
+    const TRANSLATIONS = {
+      ar: {
+        appName: "منصة نبض للرعاية الذكية",
+        tagline: "نظام الإنذار المبكر المتقدم لدعم القرار السريري وتقييم NEWS2 السريع",
+        biometricTitle: "بوابة الوصول السريري الآمن",
+        biometricDesc: "يرجى مسح البصمة البيومترية أو إدخال رمز المرور للولوج للملفات الطبية للمرضى",
+        pinLabel: "رمز الدخول الافتراضي: 2026",
+        pinError: "الرمز غير صحيح، يرجى المحاولة مجدداً",
+        scanFingerprint: "اضغط لمحاكاة مسح البصمة",
+        scanning: "جاري الفحص البيومتري...",
+        welcomeClinician: "مرحباً د. طارق الهادي",
+        dashboard: "لوحة التحكم",
+        addPatient: "مريض جديد",
+        patientsList: "سجل المرضى",
+        news2Calculator: "حاسبة NEWS2",
+        stats: "التحليلات",
+        settings: "الإعدادات",
+        totalPatients: "إجمالي السجلات",
+        criticalCases: "الحالات الحرجة",
+        alerts: "تنبيهات حية",
+        lowRisk: "منخفض الخطورة",
+        medRisk: "متوسط الخطورة",
+        highRisk: "مرتفع الخطورة",
+        newsBreakdown: "تفصيل مقياس الإنذار المبكر",
+        saveBtn: "حفظ وتحليل الحالة",
+        cameraTitle: "التقاط المرفق الطبي",
+        symptoms: "الشكوى السريرية",
+        diagnosis: "التشخيص الأولي",
+        vitals: "العلامات الحيوية",
+        pacsMarkup: "منصة تخطيط ورسم الملاحظات (PACS Markup Engine)",
+        pacsDesc: "انقر على الصورة لوضع مؤشر العيب أو استخدم القلم للرسم الحر مباشرة على الفحص",
+        freehandPen: "قلم حر",
+        markerPin: "دبوس علامة",
+        clearMarkup: "مسح التخطيطات",
+        undo: "تراجع",
+        findingType: "نوع العيب أو الاعتلال",
+        clinicianNotes: "ملاحظات الطبيب المعالج",
+        saveMarker: "تثبيت المؤشر",
+        copilotTitle: "المساعد السريري الذكي المدمج",
+        copilotDesc: "اطرح أي استفسار طبي حول المريض الحالي وسيقوم النظام بتحليله فوراً",
+        yemenGlobal: "نبض سمارت كير - الإصدار الذهبي 2026"
+      },
+      en: {
+        appName: "Nabd Smart Care Platform",
+        tagline: "Advanced Early Warning & Clinical Support Decision System (NEWS2)",
+        biometricTitle: "Secure Clinical Access Gateway",
+        biometricDesc: "Please scan your biometric profile or enter your clinician authorization PIN",
+        pinLabel: "Default Authorization PIN: 2026",
+        pinError: "Invalid PIN code, please check and try again",
+        scanFingerprint: "Click to simulate Fingerprint scan",
+        scanning: "Scanning biometric credential...",
+        welcomeClinician: "Welcome, Dr. Tariq Al-Hadi",
+        dashboard: "Dashboard",
+        addPatient: "Add Patient",
+        patientsList: "Patients Log",
+        news2Calculator: "NEWS2 Calculator",
+        stats: "Analytics",
+        settings: "Settings",
+        totalPatients: "Total Logs",
+        criticalCases: "Critical Cases",
+        alerts: "Live Alerts",
+        lowRisk: "Low Risk",
+        medRisk: "Medium Risk",
+        highRisk: "High Risk",
+        newsBreakdown: "NEWS2 Score Breakdown",
+        saveBtn: "Save & Analyze",
+        cameraTitle: "Capture Medical Scan",
+        symptoms: "Clinical Symptoms",
+        diagnosis: "Initial Diagnosis",
+        vitals: "Physiological Vitals",
+        pacsMarkup: "PACS Markup & Annotation Node",
+        pacsDesc: "Click scan to place diagnostic marker pin or draw freehand",
+        freehandPen: "Freehand Pen",
+        markerPin: "Marker Pin",
+        clearMarkup: "Clear Drawings",
+        undo: "Undo Stroke",
+        findingType: "Abnormality Type",
+        clinicianNotes: "Clinician Findings",
+        saveMarker: "Save Pin Location",
+        copilotTitle: "Integrated AI Clinical Copilot",
+        copilotDesc: "Ask any complex clinical query regarding the patient file",
+        yemenGlobal: "Nabd Smart Care - Global Gold Edition 2026"
+      }
+    };
+
+    function App() {
+      const [lang, setLang] = useState("ar");
+      const [isLocked, setIsLocked] = useState(true);
+      const [pin, setPin] = useState("");
+      const [pinError, setPinError] = useState(false);
+      const [isScanning, setIsScanning] = useState(false);
+      const [scanProgress, setScanProgress] = useState(0);
+      const [currentScreen, setCurrentScreen] = useState("DASHBOARD");
+      const [patients, setPatients] = useState(() => {
+        const saved = localStorage.getItem("nabd_patients");
+        return saved ? JSON.parse(saved) : INITIAL_PATIENTS;
+      });
+      const [selectedPatient, setSelectedPatient] = useState(null);
+
+      // Save Patients to LocalStorage on update
+      useEffect(() => {
+        localStorage.setItem("nabd_patients", JSON.stringify(patients));
+      }, [patients]);
+
+      const t = TRANSLATIONS[lang];
+
+      // Biometric simulated login
+      const handleFingerprintScan = () => {
+        setIsScanning(true);
+        setScanProgress(0);
+        const interval = setInterval(() => {
+          setScanProgress((prev) => {
+            if (prev >= 100) {
+              clearInterval(interval);
+              setTimeout(() => {
+                setIsLocked(false);
+                setIsScanning(false);
+              }, 400);
+              return 100;
+            }
+            return prev + 10;
+          });
+        }, 120);
+      };
+
+      const handlePinSubmit = (e) => {
+        e.preventDefault();
+        if (pin === "2026") {
+          setIsLocked(false);
+          setPinError(false);
+        } else {
+          setPinError(true);
+        }
+      };
+
+      if (isLocked) {
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 font-sans text-white select-none">
+            <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-center space-y-6 animate-fade-in">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-sky-500/10 flex items-center justify-center border border-sky-500/30 animate-pulse">
+                  <svg className="w-8 h-8 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                </div>
+              </div>
+              <div>
+                <h1 className="text-2xl font-black text-sky-400">{t.appName}</h1>
+                <p className="text-xs text-slate-400 mt-1">{t.biometricTitle}</p>
+              </div>
+
+              {/* simulated fingerprint */}
+              <div className="flex flex-col items-center justify-center p-6 border border-slate-800/80 bg-slate-950/50 rounded-2xl space-y-3">
+                <button 
+                  onClick={handleFingerprintScan}
+                  disabled={isScanning}
+                  className={`w-20 h-20 rounded-full border-2 ${isScanning ? 'border-sky-500 animate-pulse':'border-slate-700 hover:border-sky-500'} flex items-center justify-center bg-slate-900/80 active:scale-95 transition-all cursor-pointer`}
+                >
+                  <svg className={`w-10 h-10 ${isScanning ? 'text-sky-400':'text-slate-400 hover:text-sky-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11a13.92 13.92 0 013.448-9.04m3.197 2.185A13.92 13.92 0 0115 11c0 2.535-.673 4.913-1.855 6.967m1.855-6.967a13.98 13.98 0 011.855-6.967M6 20.33V19a4 4 0 014-4h4a4 4 0 014 4v1.33"></path></svg>
+                </button>
+                <p className="text-xs text-slate-400">{isScanning ? t.scanning : t.scanFingerprint}</p>
+                {isScanning && (
+                  <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-2">
+                    <div className="bg-sky-500 h-full transition-all duration-150" style={{width: `${scanProgress}%`}}></div>
+                  </div>
+                )}
+              </div>
+
+              {/* PIN Code entry */}
+              <form onSubmit={handlePinSubmit} className="space-y-3">
+                <input 
+                  type="password" 
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="••••"
+                  className="w-full text-center tracking-widest text-lg bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 focus:outline-none focus:border-sky-500 text-white font-bold"
+                  maxLength={4}
+                />
+                {pinError && <p className="text-xs text-rose-500">{t.pinError}</p>}
+                <p className="text-[10px] text-slate-500">{t.pinLabel}</p>
+                <button type="submit" className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition-colors cursor-pointer text-sm">
+                  دخول سريري آمن
+                </button>
+              </form>
+
+              {/* language toggle */}
+              <div className="flex justify-center pt-2">
+                <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="text-xs text-slate-400 hover:text-white underline">
+                  {lang === 'ar' ? 'Switch to English' : 'التحويل للعربية'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen flex flex-col font-sans" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          {/* Main Top Header Navbar */}
+          <header className="bg-slate-900 text-white py-3 px-4 shadow-md sticky top-0 z-40 no-print">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-sky-500 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                </div>
+                <div>
+                  <h1 className="text-sm font-black text-sky-400">{t.appName}</h1>
+                  <p className="text-[9px] text-slate-400">{t.tagline}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full font-bold border border-emerald-500/20 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span>متصل سحابياً</span>
+                </span>
+                <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 transition-colors">
+                  {lang === 'ar' ? 'EN' : 'عربي'}
+                </button>
+                <button onClick={() => setIsLocked(true)} className="text-slate-400 hover:text-rose-400 p-1.5 bg-slate-800/80 rounded-lg">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Sub Header - Clinician Greeting & Quick Stats */}
+          <div className="bg-slate-800 text-slate-300 py-2.5 px-4 text-xs border-t border-slate-800 shadow-sm no-print">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">👨‍⚕️</span>
+                <span className="font-bold text-white">{t.welcomeClinician}</span>
+                <span className="text-slate-500">|</span>
+                <span className="text-[10px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-md font-bold">رئيس قسم العناية والقلب</span>
+              </div>
+              <div className="flex items-center gap-4 text-slate-400">
+                <span>تاريخ الوردية: {new Date().toLocaleDateString(lang === 'ar'?'ar-YE':'en-US', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Main App Workspace Layout */}
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col md:flex-row gap-4">
+            
+            {/* Sidebar Navigation */}
+            <aside className="w-full md:w-60 bg-white border border-slate-200/80 p-3 rounded-2xl flex flex-col gap-1.5 shrink-0 no-print shadow-sm">
+              <button 
+                onClick={() => { setCurrentScreen("DASHBOARD"); setSelectedPatient(null); }}
+                className={`flex items-center gap-2.5 w-full text-right px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${currentScreen === 'DASHBOARD' ? 'bg-sky-500 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h3m-6 0a1 1 0 001-1v-4a1 1 0 00-1-1h-3a1 1 0 00-1 1v4a1 1 0 001 1m6 0h6"></path></svg>
+                <span>{t.dashboard}</span>
+              </button>
+              <button 
+                onClick={() => { setCurrentScreen("PATIENTS"); setSelectedPatient(null); }}
+                className={`flex items-center gap-2.5 w-full text-right px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${currentScreen === 'PATIENTS' ? 'bg-sky-500 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                <span>{t.patientsList}</span>
+              </button>
+              <button 
+                onClick={() => { setCurrentScreen("ADD_PATIENT"); setSelectedPatient(null); }}
+                className={`flex items-center gap-2.5 w-full text-right px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${currentScreen === 'ADD_PATIENT' ? 'bg-sky-500 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>{t.addPatient}</span>
+              </button>
+              <button 
+                onClick={() => { setCurrentScreen("CALCULATOR"); setSelectedPatient(null); }}
+                className={`flex items-center gap-2.5 w-full text-right px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${currentScreen === 'CALCULATOR' ? 'bg-sky-500 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                <span>{t.news2Calculator}</span>
+              </button>
+              
+              <div className="border-t border-slate-100 my-4"></div>
+
+              {/* Yemen & Global custom footer notice */}
+              <div className="p-3 bg-slate-50 border border-slate-200/50 rounded-xl space-y-2 mt-auto">
+                <div className="text-[10px] font-bold text-sky-600 tracking-wide uppercase">{t.yemenGlobal}</div>
+                <div className="text-[9px] text-slate-500 leading-relaxed">
+                  منصة برمجية متكاملة لدعم الأطباء والكادر الطبي في اتخاذ القرار السريري السريع والإنذار بالخطر.
+                </div>
+              </div>
+            </aside>
+
+            {/* Main Application Content Body Workspace */}
+            <div className="flex-1 min-w-0">
+              {selectedPatient ? (
+                <PatientDetailsView 
+                  patient={selectedPatient} 
+                  onBack={() => setSelectedPatient(null)} 
+                  lang={lang}
+                  t={t}
+                  onUpdatePatient={(updatedPat) => {
+                    setPatients(prev => prev.map(p => p.id === updatedPat.id ? updatedPat : p));
+                    setSelectedPatient(updatedPat);
+                  }}
+                />
+              ) : (
+                <div>
+                  {currentScreen === "DASHBOARD" && (
+                    <DashboardView 
+                      patients={patients} 
+                      onSelectPatient={setSelectedPatient} 
+                      onNavigate={setCurrentScreen}
+                      lang={lang} 
+                      t={t} 
+                    />
+                  )}
+                  {currentScreen === "PATIENTS" && (
+                    <PatientsListView 
+                      patients={patients} 
+                      onSelectPatient={setSelectedPatient} 
+                      onDeletePatient={(id) => {
+                        if (confirm("هل أنت متأكد من حذف هذا السجل بشكل نهائي؟")) {
+                          setPatients(prev => prev.filter(p => p.id !== id));
+                        }
+                      }}
+                      lang={lang} 
+                      t={t} 
+                    />
+                  )}
+                  {currentScreen === "ADD_PATIENT" && (
+                    <AddPatientView 
+                      onAddPatient={(newPat) => {
+                        setPatients(prev => [newPat, ...prev]);
+                        setCurrentScreen("PATIENTS");
+                      }}
+                      lang={lang} 
+                      t={t} 
+                    />
+                  )}
+                  {currentScreen === "CALCULATOR" && (
+                    <StandaloneCalculator lang={lang} t={t} />
+                  )}
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    // --- Sub-components implementation ---
+
+    function DashboardView({ patients, onSelectPatient, onNavigate, lang, t }) {
+      const highRiskCount = patients.filter(p => p.newsScore >= 7).length;
+      const medRiskCount = patients.filter(p => p.newsScore >= 5 && p.newsScore < 7).length;
+      const lowRiskCount = patients.filter(p => p.newsScore < 5).length;
+
+      return (
+        <div className="space-y-5 animate-fade-in">
+          
+          {/* Quick Metrics Statistics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4.5 flex items-center justify-between shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400">{t.totalPatients}</span>
+                <h3 className="text-2xl font-extrabold text-slate-800 mt-0.5">{patients.length}</h3>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center text-sky-500">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+              </div>
+            </div>
+            
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4.5 flex items-center justify-between shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-rose-400">{t.criticalCases}</span>
+                <h3 className="text-2xl font-extrabold text-rose-600 mt-0.5">{highRiskCount}</h3>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500">
+                <svg className="w-5 h-5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4.5 flex items-center justify-between shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-amber-500">متوسط الخطورة</span>
+                <h3 className="text-2xl font-extrabold text-amber-600 mt-0.5">{medRiskCount}</h3>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4.5 flex items-center justify-between shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-emerald-500">مستقرة / منخفضة</span>
+                <h3 className="text-2xl font-extrabold text-emerald-650 mt-0.5">{lowRiskCount}</h3>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions Panel */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4.5 shadow-sm">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">إجراءات سريرية سريعة</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <button onClick={() => onNavigate("ADD_PATIENT")} className="flex items-center gap-2 justify-center py-3 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-xl font-bold text-xs transition-colors cursor-pointer">
+                <span>➕ قبول مريض جديد</span>
+              </button>
+              <button onClick={() => onNavigate("CALCULATOR")} className="flex items-center gap-2 justify-center py-3 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl font-bold text-xs transition-colors cursor-pointer">
+                <span>📊 حاسبة الإنذار المبكر</span>
+              </button>
+              <button onClick={() => onNavigate("PATIENTS")} className="flex items-center gap-2 justify-center py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl font-bold text-xs transition-colors cursor-pointer">
+                <span>🔍 فرز وفحص السجلات</span>
+              </button>
+              <div className="bg-slate-50 border border-slate-200/60 rounded-xl flex items-center justify-center text-slate-500 text-[10px] font-bold p-2 text-center leading-relaxed">
+                رمز الوصول المعياري للأجهزة والمحيطات الطبية الذكية نشط.
+              </div>
+            </div>
+          </div>
+
+          {/* Critical Patients Queue Panel */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-slate-900">سجل فرز الطوارئ والحالات الحرجة</h3>
+                <p className="text-xs text-slate-500">قائمة المرضى الأشد حرجاً المرتبة تنازلياً حسب تقييم تدهور الوظائف الحيوية NEWS2</p>
+              </div>
+              <button onClick={() => onNavigate("PATIENTS")} className="text-xs text-sky-600 font-bold hover:underline">
+                عرض كافة المرضى ←
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {patients.map((pat) => {
+                const isCritical = pat.newsScore >= 7;
+                return (
+                  <div key={pat.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors rounded-xl px-2">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
+                        pat.newsScore >= 7 ? 'bg-rose-50 text-rose-600 border border-rose-200' :
+                        pat.newsScore >= 5 ? 'bg-amber-50 text-amber-600 border border-amber-200' :
+                        'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                      }`}>
+                        {pat.newsScore}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">{pat.name}</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          العمر: {pat.age} سنة | القسم: {pat.department} | رقم الملف: {pat.mrn}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2.5 self-end sm:self-center">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
+                        pat.newsScore >= 7 ? 'bg-rose-100 text-rose-800' :
+                        pat.newsScore >= 5 ? 'bg-amber-100 text-amber-800' :
+                        'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        NEWS2: {pat.newsScore} ({pat.newsScore >= 7 ? 'حرج' : pat.newsScore >= 5 ? 'متوسط' : 'مستقر'})
+                      </span>
+                      <button 
+                        onClick={() => onSelectPatient(pat)}
+                        className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                      >
+                        فتح الملف الطبي
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function PatientsListView({ patients, onSelectPatient, onDeletePatient, lang, t }) {
+      const [search, setSearch] = useState("");
+      const [filterDept, setFilterDept] = useState("ALL");
+
+      const filtered = patients.filter(p => {
+        const matchesSearch = p.name.includes(search) || p.mrn.includes(search);
+        const matchesDept = filterDept === "ALL" || p.department === filterDept;
+        return matchesSearch && matchesDept;
+      });
+
+      return (
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-slate-900">{t.patientsList}</h2>
+              <p className="text-xs text-slate-500">إدارة وفحص جميع السجلات السريرية ومتابعة مستويات الخطورة</p>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+            <input 
+              type="text" 
+              placeholder="البحث بالاسم أو رقم السجل الطبي..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-sky-500 font-medium"
+            />
+            <select 
+              value={filterDept} 
+              onChange={(e) => setFilterDept(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-sky-500 cursor-pointer font-bold text-slate-700"
+            >
+              <option value="ALL">كافة الأقسام</option>
+              <option value="Emergency">الطوارئ (Emergency)</option>
+              <option value="Cardiology">القلب (Cardiology)</option>
+              <option value="ICU">العناية المركزة (ICU)</option>
+            </select>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 font-bold">
+                  <th className="pb-3 text-right">المريض</th>
+                  <th className="pb-3 text-center">NEWS2 Score</th>
+                  <th className="pb-3 text-center">مستوى الخطورة</th>
+                  <th className="pb-3 text-center">القسم</th>
+                  <th className="pb-3 text-left">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((pat) => (
+                  <tr key={pat.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="py-4">
+                      <div className="font-bold text-slate-800 text-sm">{pat.name}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">العمر: {pat.age} | {pat.mrn}</div>
+                    </td>
+                    <td className="py-4 text-center font-bold text-sm">
+                      <span className={`px-2 py-0.5 rounded ${
+                        pat.newsScore >= 7 ? 'bg-rose-50 text-rose-600 font-black' :
+                        pat.newsScore >= 5 ? 'bg-amber-50 text-amber-600' :
+                        'bg-emerald-50 text-emerald-650'
+                      }`}>
+                        {pat.newsScore}
+                      </span>
+                    </td>
+                    <td className="py-4 text-center">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-extrabold ${
+                        pat.newsScore >= 7 ? 'bg-rose-100 text-rose-800' :
+                        pat.newsScore >= 5 ? 'bg-amber-100 text-amber-800' :
+                        'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {pat.newsScore >= 7 ? t.highRisk : pat.newsScore >= 5 ? 'خطورة متوسطة' : t.lowRisk}
+                      </span>
+                    </td>
+                    <td className="py-4 text-center font-bold text-slate-600">{pat.department}</td>
+                    <td className="py-4 text-left">
+                      <div className="flex items-center gap-2 justify-end">
+                        <button onClick={() => onSelectPatient(pat)} className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-lg text-[11px] transition-colors cursor-pointer">
+                          فحص السجل
+                        </button>
+                        <button onClick={() => onDeletePatient(pat.id)} className="p-1.5 hover:bg-rose-50 text-rose-500 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-rose-100">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    function AddPatientView({ onAddPatient, lang, t }) {
+      const [name, setName] = useState("");
+      const [age, setAge] = useState("");
+      const [gender, setGender] = useState("Male");
+      const [dept, setDept] = useState("Emergency");
+      const [symptoms, setSymptoms] = useState("");
+      const [diagnosis, setDiagnosis] = useState("");
+      const [bp, setBp] = useState(120);
+      const [bpd, setBpd] = useState(80);
+      const [hr, setHr] = useState(75);
+      const [rr, setRr] = useState(16);
+      const [temp, setTemp] = useState(37.0);
+      const [spo2, setSpo2] = useState(98);
+      const [gcs, setGcs] = useState("A");
+      const [oxygen, setOxygen] = useState(false);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!name || !age) {
+          alert("يرجى ملء الحقول الأساسية (الاسم والعمر)");
+          return;
+        }
+
+        // Calculate NEWS2 Score dynamically
+        let score = 0;
+        
+        // 1. Respiration Rate (RR)
+        if (rr <= 8) score += 3;
+        else if (rr >= 9 && rr <= 11) score += 1;
+        else if (rr >= 12 && rr <= 20) score += 0;
+        else if (rr >= 21 && rr <= 24) score += 2;
+        else if (rr >= 25) score += 3;
+
+        // 2. SpO2 Scale 1
+        if (spo2 <= 91) score += 3;
+        else if (spo2 >= 92 && spo2 <= 93) score += 2;
+        else if (spo2 >= 94 && spo2 <= 95) score += 1;
+        else if (spo2 >= 96) score += 0;
+
+        // 3. Oxygen support
+        if (oxygen) score += 2;
+
+        // 4. Temperature (Temp)
+        if (temp <= 35.0) score += 3;
+        else if (temp >= 35.1 && temp <= 36.0) score += 1;
+        else if (temp >= 36.1 && temp <= 38.0) score += 0;
+        else if (temp >= 38.1 && temp <= 39.0) score += 1;
+        else if (temp >= 39.1) score += 2;
+
+        // 5. Systolic BP
+        if (bp <= 90) score += 3;
+        else if (bp >= 91 && bp <= 100) score += 2;
+        else if (bp >= 101 && bp <= 110) score += 1;
+        else if (bp >= 111 && bp <= 219) score += 0;
+        else if (bp >= 220) score += 3;
+
+        // 6. Heart Rate (HR)
+        if (hr <= 40) score += 3;
+        else if (hr >= 41 && hr <= 50) score += 1;
+        else if (hr >= 51 && hr <= 90) score += 0;
+        else if (hr >= 91 && hr <= 110) score += 1;
+        else if (hr >= 111 && hr <= 130) score += 2;
+        else if (hr >= 131) score += 3;
+
+        // 7. Consciousness (GCS/ACVPU)
+        if (gcs !== "A") score += 3;
+
+        const newPat = {
+          id: "pat-" + Date.now(),
+          mrn: "MRN-2026-" + Math.floor(1000 + Math.random() * 9000),
+          name,
+          age: parseInt(age),
+          gender,
+          department: dept,
+          symptoms,
+          diagnosis,
+          bp,
+          bpd,
+          hr,
+          rr,
+          temp,
+          spo2,
+          gcs,
+          oxygen,
+          labs: "",
+          treatments: "",
+          riskLevel: score >= 7 ? "HIGH" : score >= 5 ? "MEDIUM" : "LOW",
+          newsScore: score,
+          createdDate: new Date().toISOString(),
+          timeline: [
+            { id: "tl-" + Date.now(), date: new Date().toISOString().split('T')[0], type: "entry", title: "دخول وتسجيل", desc: "تم إدخال المريض وتسجيل المؤشرات السريرية.", clinician: "د. طارق الهادي" }
+          ],
+          scans: [
+            { name: "Radiology Chest X-Ray", url: "https://images.unsplash.com/photo-1559757175-5700dde675bc?auto=format&fit=crop&q=80&w=800", type: "XRAY" }
+          ]
+        };
+
+        onAddPatient(newPat);
+      };
+
+      return (
+        <form onSubmit={handleSubmit} className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-5 animate-fade-in text-xs">
+          <div>
+            <h2 className="text-lg font-black text-slate-900">{t.addPatient}</h2>
+            <p className="text-xs text-slate-500">تسجيل مريض جديد وحساب نقاط NEWS2 وتقييم تدهور الحالة في ثوانٍ</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-slate-600">اسم المريض الكامل</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500" placeholder="مثال: صالح علوي العولقي" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-slate-600">العمر (بالسنوات)</label>
+              <input type="number" value={age} onChange={(e) => setAge(e.target.value)} required className="border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500" placeholder="60" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-slate-600">الجنس</label>
+              <select value={gender} onChange={(e) => setGender(e.target.value)} className="border border-slate-200 rounded-lg p-2 cursor-pointer font-bold">
+                <option value="Male">ذكر (Male)</option>
+                <option value="Female">أنثى (Female)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-slate-600">{t.symptoms}</label>
+              <textarea value={symptoms} onChange={(e) => setSymptoms(e.target.value)} className="border border-slate-200 rounded-lg p-2 h-16 focus:outline-none focus:border-sky-500" placeholder="وصف للأعراض الحالية والشكوى السريرية..." />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-slate-600">{t.diagnosis}</label>
+              <textarea value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className="border border-slate-200 rounded-lg p-2 h-16 focus:outline-none focus:border-sky-500" placeholder="التشخيص المبدئي أو التقييم الإكلينيكي الأولي..." />
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-4">
+            <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-1.5 text-sky-650">
+              <span>🩺</span>
+              <span>المؤشرات الحيوية السريرية (Physiological Vitals)</span>
+            </h3>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">معدل التنفس (RR / min)</label>
+                <input type="number" value={rr} onChange={(e) => setRr(parseInt(e.target.value) || 0)} className="border border-slate-200 rounded-lg p-2" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">تشبع الأكسجين (SpO2 %)</label>
+                <input type="number" value={spo2} onChange={(e) => setSpo2(parseInt(e.target.value) || 0)} className="border border-slate-200 rounded-lg p-2" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">دعم الأكسجين (O2 Therapy)</label>
+                <select value={oxygen ? "yes" : "no"} onChange={(e) => setOxygen(e.target.value === "yes")} className="border border-slate-200 rounded-lg p-2 font-bold cursor-pointer">
+                  <option value="no">لا يتلقى أكسجين (هواء الغرفة)</option>
+                  <option value="yes">نعم، يتلقى علاج بالأكسجين</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">درجة الحرارة (Temp °C)</label>
+                <input type="number" step="0.1" value={temp} onChange={(e) => setTemp(parseFloat(e.target.value) || 0)} className="border border-slate-200 rounded-lg p-2" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">الضغط الانقباضي (Systolic BP)</label>
+                <input type="number" value={bp} onChange={(e) => setBp(parseInt(e.target.value) || 0)} className="border border-slate-200 rounded-lg p-2" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">معدل ضربات القلب (HR / min)</label>
+                <input type="number" value={hr} onChange={(e) => setHr(parseInt(e.target.value) || 0)} className="border border-slate-200 rounded-lg p-2" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">مستوى الوعي (GCS / ACVPU)</label>
+                <select value={gcs} onChange={(e) => setGcs(e.target.value)} className="border border-slate-200 rounded-lg p-2 font-bold cursor-pointer">
+                  <option value="A">Alert (مستيقظ ومنتبه بالكامل)</option>
+                  <option value="C">Confusion (مشوش أو لديه ارتباك مستجد)</option>
+                  <option value="V">Voice (يستجيب للمنبه الصوتي فقط)</option>
+                  <option value="P">Pain (يستجيب للألم فقط)</option>
+                  <option value="U">Unresponsive (فاقد للوعي تماماً)</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">القسم الموجه إليه</label>
+                <select value={dept} onChange={(e) => setDept(e.target.value)} className="border border-slate-200 rounded-lg p-2 font-bold cursor-pointer">
+                  <option value="Emergency">الطوارئ (Emergency)</option>
+                  <option value="Cardiology">القلب (Cardiology)</option>
+                  <option value="ICU">العناية المركزة (ICU)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-100 flex justify-end gap-3">
+            <button type="submit" className="px-5 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl transition-colors cursor-pointer shadow-md text-xs">
+              {t.saveBtn}
+            </button>
+          </div>
+        </form>
+      );
+    }
+
+    // --- Standalone NEWS2 Calculator ---
+    function StandaloneCalculator({ lang, t }) {
+      const [rr, setRr] = useState(16);
+      const [spo2, setSpo2] = useState(98);
+      const [oxygen, setOxygen] = useState(false);
+      const [temp, setTemp] = useState(37.0);
+      const [bp, setBp] = useState(120);
+      const [hr, setHr] = useState(75);
+      const [gcs, setGcs] = useState("A");
+
+      // Evaluation
+      let score = 0;
+      let breakdown = { rr: 0, spo2: 0, oxygen: 0, temp: 0, bp: 0, hr: 0, gcs: 0 };
+
+      if (rr <= 8) breakdown.rr = 3;
+      else if (rr >= 9 && rr <= 11) breakdown.rr = 1;
+      else if (rr >= 12 && rr <= 20) breakdown.rr = 0;
+      else if (rr >= 21 && rr <= 24) breakdown.rr = 2;
+      else if (rr >= 25) breakdown.rr = 3;
+
+      if (spo2 <= 91) breakdown.spo2 = 3;
+      else if (spo2 >= 92 && spo2 <= 93) breakdown.spo2 = 2;
+      else if (spo2 >= 94 && spo2 <= 95) breakdown.spo2 = 1;
+      else if (spo2 >= 96) breakdown.spo2 = 0;
+
+      if (oxygen) breakdown.oxygen = 2;
+      
+      if (temp <= 35.0) breakdown.temp = 3;
+      else if (temp >= 35.1 && temp <= 36.0) breakdown.temp = 1;
+      else if (temp >= 36.1 && temp <= 38.0) breakdown.temp = 0;
+      else if (temp >= 38.1 && temp <= 39.0) breakdown.temp = 1;
+      else if (temp >= 39.1) breakdown.temp = 2;
+
+      if (bp <= 90) breakdown.bp = 3;
+      else if (bp >= 91 && bp <= 100) breakdown.bp = 2;
+      else if (bp >= 101 && bp <= 110) breakdown.bp = 1;
+      else if (bp >= 111 && bp <= 219) breakdown.bp = 0;
+      else if (bp >= 220) breakdown.bp = 3;
+
+      if (hr <= 40) breakdown.hr = 3;
+      else if (hr >= 41 && hr <= 50) breakdown.hr = 1;
+      else if (hr >= 51 && hr <= 90) breakdown.hr = 0;
+      else if (hr >= 91 && hr <= 110) breakdown.hr = 1;
+      else if (hr >= 111 && hr <= 130) breakdown.hr = 2;
+      else if (hr >= 131) breakdown.hr = 3;
+
+      if (gcs !== "A") breakdown.gcs = 3;
+
+      score = Object.values(breakdown).reduce((a, b) => a + b, 0);
+
+      return (
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-5 animate-fade-in text-xs">
+          <div>
+            <h2 className="text-lg font-black text-slate-900">حاسبة الإنذار المبكر الوطنية NEWS2</h2>
+            <p className="text-xs text-slate-500">حساب درجة الخطورة وتحديد التوصية السريرية حسب توجيهات الكلية الملكية للأطباء (RCP)</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200/55">
+              <h3 className="font-bold text-slate-700 text-sm border-b border-slate-200 pb-1.5">إدخال العلامات الحيوية</h3>
+              
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">معدل التنفس (RR / min)</label>
+                <input type="number" value={rr} onChange={(e) => setRr(parseInt(e.target.value) || 0)} className="border border-slate-200 bg-white rounded p-1.5" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">نسبة الأكسجين (SpO2 %)</label>
+                <input type="number" value={spo2} onChange={(e) => setSpo2(parseInt(e.target.value) || 0)} className="border border-slate-200 bg-white rounded p-1.5" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">العلاج بالأكسجين</label>
+                <select value={oxygen ? "yes" : "no"} onChange={(e) => setOxygen(e.target.value === "yes")} className="border border-slate-200 bg-white rounded p-1.5 font-bold cursor-pointer">
+                  <option value="no">لا (هواء الغرفة)</option>
+                  <option value="yes">نعم (تحت الأكسجين)</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">درجة الحرارة (Temp °C)</label>
+                <input type="number" step="0.1" value={temp} onChange={(e) => setTemp(parseFloat(e.target.value) || 0)} className="border border-slate-200 bg-white rounded p-1.5" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">الضغط الانقباضي (BP mmHg)</label>
+                <input type="number" value={bp} onChange={(e) => setBp(parseInt(e.target.value) || 0)} className="border border-slate-200 bg-white rounded p-1.5" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">نبضات القلب (HR / min)</label>
+                <input type="number" value={hr} onChange={(e) => setHr(parseInt(e.target.value) || 0)} className="border border-slate-200 bg-white rounded p-1.5" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-600">مستوى الوعي المستجد</label>
+                <select value={gcs} onChange={(e) => setGcs(e.target.value)} className="border border-slate-200 bg-white rounded p-1.5 font-bold cursor-pointer">
+                  <option value="A">Alert (منتبه ويقظ)</option>
+                  <option value="C">Confusion (مشوش مستجد)</option>
+                  <option value="V">Voice (يستجيب للصوت)</option>
+                  <option value="P">Pain (يستجيب للألم)</option>
+                  <option value="U">Unresponsive (فاقد الوعي)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Results breakdown display */}
+            <div className="bg-slate-900 text-white rounded-xl p-5 flex flex-col justify-between space-y-4">
+              <div className="text-center space-y-1">
+                <h3 className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">مجموع مقياس التدهور الكلي</h3>
+                <h2 className={`text-6xl font-black ${
+                  score >= 7 ? 'text-rose-500' :
+                  score >= 5 ? 'text-amber-500' :
+                  'text-emerald-400'
+                }`}>{score}</h2>
+                <div className="pt-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-black ${
+                    score >= 7 ? 'bg-rose-500/10 text-rose-400' :
+                    score >= 5 ? 'bg-amber-500/10 text-amber-400' :
+                    'bg-emerald-500/10 text-emerald-400'
+                  }`}>
+                    {score >= 7 ? '🔴 خطورة مرتفعة (استجابة طارئة)' : score >= 5 ? '🟡 خطورة متوسطة (تقييم فوري)' : '🟢 خطورة منخفضة (متابعة معيارية)'}
+                  </span>
+                </div>
+              </div>
+
+              {/* RCP recommendations */}
+              <div className="bg-slate-950/80 rounded-lg p-3.5 border border-slate-800 space-y-2">
+                <h4 className="font-bold text-sky-400">التوصية السريرية (RCP Recommendation):</h4>
+                <p className="text-[11px] leading-relaxed text-slate-300">
+                  {score >= 7 ? "مراجعة فورية بواسطة فريق الطوارئ المتنقل والمختص بالرعاية الفائقة. يوصى بنقل المريض مباشرة إلى العناية المركزة ومراقبة العلامات الحيوية بشكل مستمر مع تفعيل التنبيه المباشر." :
+                   score >= 5 ? "يتطلب تقييم طبي عاجل من قبل طبيب اخصائي خلال مدة أقصاها ساعة واحدة، ومراجعة وتعديل خطة العلاج مع زيادة وتيرة فحص العلامات الحيوية إلى ساعة واحدة على الأقل." :
+                   "استمرار القياسات والمعايرة الروتينية للعلامات الحيوية كل 4 إلى 12 ساعة."}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- Detailed Patient view with PACS Clinical Canvas Annotation ---
+
+    function PatientDetailsView({ patient, onBack, lang, t, onUpdatePatient }) {
+      const [isAnnotating, setIsAnnotating] = useState(false);
+      const [tool, setTool] = useState("marker"); // "pen" or "marker"
+      const [color, setColor] = useState("#ef4444");
+      const [brushSize, setBrushSize] = useState(4);
+      const [currentScanIndex, setCurrentScanIndex] = useState(0);
+
+      // Annotation Layer States
+      const [markerForm, setMarkerForm] = useState(null);
+      const [markerLabel, setMarkerLabel] = useState("Potential Ischemia");
+      const [customLabel, setCustomLabel] = useState("");
+      const [markerNotes, setMarkerNotes] = useState("");
+      const [annotations, setAnnotations] = useState(() => {
+        return patient.annotations || [];
+      });
+      const [strokes, setStrokes] = useState(() => {
+        return patient.strokes || [];
+      });
+
+      const [currentStroke, setCurrentStroke] = useState([]);
+
+      const activeScan = patient.scans[currentScanIndex] || { name: "Default View", url: "https://images.unsplash.com/photo-1559757175-5700dde675bc?auto=format&fit=crop&q=80&w=800" };
+
+      // SVG Click for placing pins
+      const handlePointerDown = (e) => {
+        if (!isAnnotating) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+        if (tool === "pen") {
+          setCurrentStroke([{ x, y }]);
+        } else if (tool === "marker") {
+          setMarkerForm({ x, y });
+        }
+      };
+
+      const handlePointerMove = (e) => {
+        if (!isAnnotating || tool !== "pen" || currentStroke.length === 0) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        setCurrentStroke(prev => [...prev, { x, y }]);
+      };
+
+      const handlePointerUp = () => {
+        if (!isAnnotating || tool !== "pen" || currentStroke.length === 0) return;
+        const newStroke = {
+          id: "stroke-" + Date.now(),
+          points: currentStroke,
+          color,
+          size: brushSize
+        };
+        const updatedStrokes = [...strokes, newStroke];
+        setStrokes(updatedStrokes);
+        setCurrentStroke([]);
+
+        // Save immediately to parent State
+        onUpdatePatient({
+          ...patient,
+          strokes: updatedStrokes,
+          annotations
+        });
+      };
+
+      const handleSaveMarker = () => {
+        if (!markerForm) return;
+        const finalLabel = markerLabel === "Other" ? (customLabel || "عيب مخصص") : markerLabel;
+        const newAnn = {
+          id: "ann-" + Date.now(),
+          x: markerForm.x,
+          y: markerForm.y,
+          label: finalLabel,
+          notes: markerNotes,
+          color: "#ef4444"
+        };
+        const updatedAnn = [...annotations, newAnn];
+        setAnnotations(updatedAnn);
+        setMarkerForm(null);
+        setMarkerNotes("");
+        setCustomLabel("");
+
+        onUpdatePatient({
+          ...patient,
+          strokes,
+          annotations: updatedAnn
+        });
+      };
+
+      const handleClear = () => {
+        setAnnotations([]);
+        setStrokes([]);
+        onUpdatePatient({
+          ...patient,
+          strokes: [],
+          annotations: []
+        });
+      };
+
+      return (
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-6 animate-fade-in text-xs">
+          
+          {/* Header Actions */}
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 no-print">
+            <button onClick={onBack} className="flex items-center gap-1.5 font-bold text-slate-500 hover:text-slate-800 transition-colors">
+              <span>←</span>
+              <span>العودة لقائمة المرضى</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => window.print()} className="px-3.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold rounded-lg flex items-center gap-1.5 cursor-pointer">
+                <span>🖨️</span>
+                <span>طباعة التقرير الطبي</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Demographic header */}
+          <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-slate-900">{patient.name}</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                رقم الملف الطبي: <span className="font-mono font-bold text-slate-700">{patient.mrn}</span> | العمر: {patient.age} سنة | الجنس: {patient.gender === 'Male' ? 'ذكر':'أنثى'}
+              </p>
+            </div>
+            <div>
+              <span className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                patient.newsScore >= 7 ? 'bg-rose-100 text-rose-800' :
+                patient.newsScore >= 5 ? 'bg-amber-100 text-amber-800' :
+                'bg-emerald-100 text-emerald-800'
+              }`}>
+                معدل NEWS2: {patient.newsScore}
+              </span>
+            </div>
+          </div>
+
+          {/* Clinical layout with PACS markup view */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            
+            {/* Left Column - PACS imaging with markup and interactive overlays */}
+            <div className="lg:col-span-7 space-y-4 no-print">
+              <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                    <span>🖼️</span>
+                    <span>{t.pacsMarkup}</span>
+                  </h3>
+                  <button 
+                    onClick={() => setIsAnnotating(!isAnnotating)}
+                    className={`px-3 py-1 rounded text-[10px] font-bold ${isAnnotating ? 'bg-rose-600 text-white' : 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100'}`}
+                  >
+                    {isAnnotating ? "إغلاق التخطيط" : "تفعيل التخطيط"}
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-slate-400">{t.pacsDesc}</p>
+
+                {/* Markup selection parameters */}
+                {isAnnotating && (
+                  <div className="flex flex-wrap items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                    <button onClick={() => setTool("marker")} className={`px-2.5 py-1 rounded text-[10px] font-bold ${tool === 'marker' ? 'bg-sky-600 text-white':'bg-white border border-slate-200'}`}>📍 {t.markerPin}</button>
+                    <button onClick={() => setTool("pen")} className={`px-2.5 py-1 rounded text-[10px] font-bold ${tool === 'pen' ? 'bg-sky-600 text-white':'bg-white border border-slate-200'}`}>🖌️ {t.freehandPen}</button>
+                    <button onClick={handleClear} className="px-2.5 py-1 rounded text-[10px] bg-rose-50 text-rose-600 font-bold mr-auto">🧹 {t.clearMarkup}</button>
+                  </div>
+                )}
+
+                {/* Main image drawing wrapper */}
+                <div className="relative border border-slate-900 bg-slate-950 rounded-lg overflow-hidden select-none h-80 sm:h-96 flex items-center justify-center">
+                  <img src={activeScan.url} className="absolute inset-0 w-full h-full object-contain pointer-events-none" alt="PACS" />
+                  
+                  {/* Drawing SVG Layer */}
+                  <svg 
+                    className="absolute inset-0 w-full h-full cursor-crosshair z-10" 
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                  >
+                    {/* Active Stroke */}
+                    {currentStroke.length > 0 && (
+                      <polyline 
+                        points={currentStroke.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth={brushSize}
+                        strokeLinecap="round"
+                      />
+                    )}
+
+                    {/* Saved Strokes */}
+                    {strokes.map((stroke) => (
+                      <polyline 
+                        key={stroke.id}
+                        points={stroke.points.map(p => `${p.x}%,${p.y}%`).join(' ')}
+                        fill="none"
+                        stroke={stroke.color}
+                        strokeWidth={stroke.size}
+                        strokeLinecap="round"
+                      />
+                    ))}
+                  </svg>
+
+                  {/* Render active Pins */}
+                  {annotations.map((ann) => (
+                    <div 
+                      key={ann.id}
+                      className="absolute group z-20"
+                      style={{ left: `${ann.x}%`, top: `${ann.y}%`, transform: 'translate(-50%, -50%)' }}
+                    >
+                      <span className="absolute inline-flex h-4 w-4 rounded-full bg-rose-500 opacity-75 animate-ping -left-1.5 -top-1.5"></span>
+                      <button className="w-3 h-3 rounded-full bg-rose-600 border border-white shadow-md cursor-pointer"></button>
+                      
+                      {/* Interactive metadata tooltip */}
+                      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white rounded p-2 text-[9px] w-36 whitespace-normal leading-normal opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center shadow-xl z-30">
+                        <div className="font-bold text-rose-400">{ann.label}</div>
+                        {ann.notes && <div className="text-slate-300 mt-1 border-t border-slate-700 pt-1">{ann.notes}</div>}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Pin customization overlay form */}
+                  {markerForm && (
+                    <div className="absolute inset-0 bg-slate-950/70 z-30 flex items-center justify-center p-3">
+                      <div className="bg-white text-slate-800 p-4 rounded-xl max-w-xs w-full space-y-3 shadow-2xl">
+                        <h4 className="font-bold border-b pb-1">تثبيت مؤشر تشخيصي</h4>
+                        
+                        <div className="space-y-2">
+                          <label className="font-bold block text-[10px]">نوع الاعتلال:</label>
+                          <select value={markerLabel} onChange={(e) => setMarkerLabel(e.target.value)} className="w-full border p-1 rounded font-bold cursor-pointer">
+                            <option value="Potential Ischemia">Potential Ischemia (نقص تروية)</option>
+                            <option value="Calcification">Calcification (تكلس نسيجي)</option>
+                            <option value="Acute Pneumothorax">Acute Pneumothorax (استرواح صدر)</option>
+                            <option value="Other">Custom (أخرى)</option>
+                          </select>
+                        </div>
+
+                        {markerLabel === 'Other' && (
+                          <input type="text" value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} className="w-full border p-1 rounded" placeholder="تسمية العيب..." />
+                        )}
+
+                        <div className="space-y-2">
+                          <label className="font-bold block text-[10px]">ملاحظات:</label>
+                          <textarea value={markerNotes} onChange={(e) => setMarkerNotes(e.target.value)} className="w-full border p-1 rounded h-12" placeholder="وصف حجم أو مكان الاعتلال..." />
+                        </div>
+
+                        <div className="flex justify-end gap-2 text-[10px]">
+                          <button onClick={() => setMarkerForm(null)} className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded font-bold">إلغاء</button>
+                          <button onClick={handleSaveMarker} className="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold">{t.saveMarker}</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Saved Annotations list */}
+              {annotations.length > 0 && (
+                <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
+                  <h4 className="font-bold text-slate-600">الملاحظات التشخيصية المسجلة بالفحص:</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {annotations.map((ann, i) => (
+                      <div key={i} className="bg-white border p-2 rounded-lg flex flex-col justify-between">
+                        <div className="font-bold text-slate-800">📍 {ann.label}</div>
+                        {ann.notes && <div className="text-[10px] text-slate-500 mt-1">{ann.notes}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column - Clinical File details */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-4 shadow-sm">
+                <h3 className="font-black text-sm border-b pb-1.5 text-slate-800">تفاصيل الفحوصات والتقرير</h3>
+                
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="font-bold text-slate-400 block uppercase">الأعراض والشكوى الحالية:</span>
+                    <p className="text-slate-800 font-medium leading-relaxed bg-slate-50 p-2.5 rounded-lg mt-1 border border-slate-100">{patient.symptoms || "لم تسجل أعراض"}</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-400 block uppercase">التشخيص الإكلينيكي المبدئي:</span>
+                    <p className="text-slate-800 font-bold leading-relaxed bg-slate-50 p-2.5 rounded-lg mt-1 border border-slate-100">{patient.diagnosis || "لم يسجل تشخيص"}</p>
+                  </div>
+                  {patient.treatments && (
+                    <div>
+                      <span className="font-bold text-slate-400 block uppercase">الأدوية والعلاجات الحالية:</span>
+                      <p className="text-emerald-800 font-bold leading-relaxed bg-emerald-50/40 p-2.5 rounded-lg mt-1 border border-emerald-150">{patient.treatments}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Vitals summary table */}
+                <div className="border-t pt-4 space-y-2">
+                  <h4 className="font-black text-slate-700">القياسات الحيوية الأخيرة:</h4>
+                  <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
+                    <div className="bg-slate-50 p-2 border rounded-lg">
+                      <span className="text-slate-400 block font-bold text-[9px]">HR (Pulse)</span>
+                      <span className="font-black text-slate-800 text-sm mt-0.5">{patient.hr} / min</span>
+                    </div>
+                    <div className="bg-slate-50 p-2 border rounded-lg">
+                      <span className="text-slate-400 block font-bold text-[9px]">SpO2</span>
+                      <span className="font-black text-slate-800 text-sm mt-0.5">{patient.spo2} %</span>
+                    </div>
+                    <div className="bg-slate-50 p-2 border rounded-lg">
+                      <span className="text-slate-400 block font-bold text-[9px]">Respiratory Rate</span>
+                      <span className="font-black text-slate-800 text-sm mt-0.5">{patient.rr} / min</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Smart copilot panel */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-sky-50/40 space-y-3 shadow-sm no-print">
+                <h3 className="font-black text-sm text-sky-850 flex items-center gap-1.5">
+                  <span>🤖</span>
+                  <span>{t.copilotTitle}</span>
+                </h3>
+                <p className="text-[10px] text-sky-700 leading-relaxed">{t.copilotDesc}</p>
+                
+                {/* Predefined prompts */}
+                <div className="space-y-2">
+                  <button onClick={() => alert("استجابة محاكاة الذكاء الاصطناعي:\nيُظهر فحص المريض الحالي خطورة تدهور حادة (NEWS2 = 12) تتطلب المتابعة الفورية والتجهيز لنقل العناية المركزة لوجود علامات قصور تنفسي حاد مع انخفاض SpO2.")} className="w-full text-right p-2 bg-white border border-slate-200 hover:border-sky-400 rounded-lg font-bold text-[10px] text-slate-700 transition-all flex items-center justify-between cursor-pointer">
+                    <span>💡 هل يعاني المريض من قصور تنفسي وشيك؟</span>
+                    <span>←</span>
+                  </button>
+                  <button onClick={() => alert("استجابة محاكاة الذكاء الاصطناعي:\nبناءً على مقياس NEWS2 المرتفع جداً، التوصية الطبية هي المراقبة المستمرة لمعدل التنفس، رفع الأكسجين إلى معدل تشبع أمن (>94%)، والتشاور السريع مع طبيب الرعاية الفائقة لإعداد بروتوكول الأنابيب الحنجرية إذا لزم الأمر.")} className="w-full text-right p-2 bg-white border border-slate-200 hover:border-sky-400 rounded-lg font-bold text-[10px] text-slate-700 transition-all flex items-center justify-between cursor-pointer">
+                    <span>💡 ما هي خطة المراقبة والتوصيات المقترحة؟</span>
+                    <span>←</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Mount React App
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
